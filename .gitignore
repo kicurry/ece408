@@ -1,0 +1,13 @@
+# vscode
+.vscode
+
+# build output
+build
+
+# reference answer
+ref
+notes
+imgs
+
+# slides
+slides

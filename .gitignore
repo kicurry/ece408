@@ -1,8 +1,9 @@
 # vscode
 .vscode
 
-# build output
+# output
 build
+res.raw
 
 # reference answer
 ref

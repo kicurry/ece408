@@ -42,7 +42,7 @@ And if you see logs like this, then congratulations, you have passed the test!
 ## Generate your own dataset
 You can generate your own dataset if you want more test. For example, you can use `MP2_Dataset` to generate dataset.
 
-    MP2_Dataset -d /data/directory/ -ra 100 -ca 128 -rb 128 -cb 256
-
+    MP2_Dataset -d /data/directory -ra 100 -ca 128 -rb 128 -cb 256
+NOTE: `/data/directory` must exist.
 
 

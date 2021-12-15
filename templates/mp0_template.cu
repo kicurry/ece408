@@ -45,6 +45,11 @@ int main(int argc, char ** argv) {
         wbLog(TRACE, " Maximum grid dimensions: ", deviceProp.maxGridSize[0], " x ",
                                                    deviceProp.maxGridSize[1], " x ",
                                                    deviceProp.maxGridSize[2]);
+        wbLog(TRACE, "Number of multiprocessors on device: ", deviceProp.multiProcessorCount);
+        wbLog(TRACE, "Maximum number of resident block per SM: ", deviceProp.maxBlocksPerMultiProcessor);
+        wbLog(TRACE, "Shared memory available per multiprocessor in bytes: ", deviceProp.sharedMemPerMultiprocessor);
+        wbLog(TRACE, "32-bit registers available per block: ", deviceProp.regsPerBlock);
+        wbLog(TRACE, "32-bit registers available per multiprocessor: ", deviceProp.regsPerMultiprocessor);
         wbLog(TRACE, " Warp size: ", deviceProp.warpSize);
     }
 

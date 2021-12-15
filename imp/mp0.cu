@@ -39,6 +39,7 @@ int main(int argc, char ** argv) {
         wbLog(TRACE, " Maximum constant memory size: ", deviceProp.totalConstMem);
         wbLog(TRACE, " Maximum shared memory size per block: ", deviceProp.sharedMemPerBlock);
 		wbLog(TRACE, " Maximum threads per block: ", deviceProp.maxThreadsPerBlock);
+		wbLog(TRACE, " Maximum resident threads per multiprocessor: ", deviceProp.maxThreadsPerMultiProcessor);
         wbLog(TRACE, " Maximum block dimensions: ", deviceProp.maxThreadsDim[0], " x ",
                                                     deviceProp.maxThreadsDim[1], " x ",
                                                     deviceProp.maxThreadsDim[2]);

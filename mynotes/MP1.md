@@ -18,16 +18,17 @@ Suppose there is a declaration `cudaDeviceProp deviceProp` and then information 
 
 #### Limitation about multiprocessors
 
-| Member variable                       | Description                                         | Value           |
-| ------------------------------------- | --------------------------------------------------- | --------------- |
-| deviceProp.sharedMemPerBlock          | Maximum shared memory size per block                | 49152 = 48KB    |
-| deviceProp.maxThreadsPerBlock         | Maximum threads per block                           | 1024            |
-|                                       |                                                     |                 |
-| deviceProp.multiProcessorCount        | Number of multiprocessors on device                 | 30              |
-| deviceProp.maxBlocksPerMultiProcessor | Maximum number of resident block per SM             | 16              |
-| deviceProp.sharedMemPerMultiprocessor | Shared memory available per multiprocessor in bytes | 102400B = 100KB |
-| deviceProp.regsPerMultiprocessor      | 32-bit registers available per multiprocessor       | 65536           |
-| deviceProp.warpSize                   | Warp size                                           | 32              |
+| Member variable                        | Description                                         | Value           |
+| -------------------------------------- | --------------------------------------------------- | --------------- |
+| deviceProp.sharedMemPerBlock           | Maximum shared memory size per block                | 49152 = 48KB    |
+| deviceProp.maxThreadsPerBlock          | Maximum threads per block                           | 1024            |
+|                                        |                                                     |                 |
+| deviceProp.multiProcessorCount         | Number of multiprocessors(eg. SM) on device         | 30              |
+| deviceProp.maxBlocksPerMultiProcessor  | Maximum number of resident block per multiprocessor | 16              |
+| deviceProp.maxThreadsPerMultiProcessor | Maximum resident threads per multiprocessor         | 1536            |
+| deviceProp.sharedMemPerMultiprocessor  | Shared memory available per multiprocessor in bytes | 102400B = 100KB |
+| deviceProp.regsPerMultiprocessor       | 32-bit registers available per multiprocessor       | 65536           |
+| deviceProp.warpSize                    | Warp size                                           | 32              |
 
 NOTE:
 

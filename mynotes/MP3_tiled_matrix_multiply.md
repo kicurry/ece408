@@ -6,7 +6,7 @@ for each thread block:
 
 - allocate two $\text{BLOCK\_WIDTH}^2$ 2D-arrays to save a tile(aka. subset) of matrix $A,B$ respectively for each phase.
 
-  NOTE: How  two shared memory arrays comes from?
+  NOTE: Where two shared memory arrays comes from?
 
   We divide the matrix into multiple small matrices whose size is equal to size of tile and want each thread can compute one element in result matrix $C$.
 

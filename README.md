@@ -43,6 +43,16 @@ For example, if you want test mp3_implementatiton, you can run
 # or you can just enter in one line
 ./bin/MP3_Implement -e ../test_data/mp03/0/output.raw -i ../test_data/mp03/0/input0.raw,../test_data/mp03/0/input1.raw -o ../test_data/mp03/0/res.raw -t matrix
 ```
+**NOTE**: If there are one more inputs which have different types, see source code to get correct order of these inputs!
+
+For example, in MP6
+``` c++
+// file mp6.cu
+inputImageFile = wbArg_getInputFile(arg, 0);    // 1st input
+inputMaskFile = wbArg_getInputFile(arg, 1);     // 2nd input
+// and so on...
+```
+
 And if you see logs like this, then congratulations, you have passed the test!
 
 ``` bash

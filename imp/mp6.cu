@@ -64,7 +64,7 @@ __device__ float clamp(float x, float start, float end) {
 // NOTE: 'pitch/channels == width' indicates that image data is aligned!!!
 __global__ void convolution_2D_tiled_kernel(float *P, float *N, 
                                             int height, int width, int pitch, int channels, 
-                                            int MaskWidth, const float* __restrict__ M) {
+                                            int MaskWidth) {
     int tidx = threadIdx.x;
     int tidy = threadIdx.y;
 
@@ -81,7 +81,7 @@ __global__ void convolution_2D_tiled_kernel(float *P, float *N,
     if (row_i >= 0 && row_i < height && col_i >= 0 && col_i < width) {
         for (int c = 0;c < channels;c ++) {
             // N_ds[tidx][tidy][c] = N[channels * (row_i * pitch + col_i) + c];
-            N_ds[tidx][tidy][c] = N[channels * (row_i * width + col_i) + c];
+            N_ds[tidx][tidy][c] = N[row_i * pitch + col_i * channels + c];
         }
     } else {
         for (int c = 0;c < channels;c ++) {
@@ -104,7 +104,7 @@ __global__ void convolution_2D_tiled_kernel(float *P, float *N,
         if (row_o < height && col_o < width) {
             for (int c = 0;c < channels;c ++) {
                 // P[channels * (row_o * pitch + col_o) + c] = clamp(output[c], 0.0f, 1.0f);
-                P[channels * (row_o * width + col_o) + c] = clamp(output[c], 0.0f, 1.0f);
+                P[row_o * pitch + col_o * channels + c] = clamp(output[c], 0.0f, 1.0f);
             }
         }
     }
@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
     float * hostMaskData;
     float * deviceInputImageData;
     float * deviceOutputImageData;
-    float * deviceMaskData;
+    // float * deviceMaskData;
 
     arg = wbArg_read(argc, argv); /* parse the input arguments */
 
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
     wbTime_start(GPU, "Doing GPU memory allocation");
     cudaMalloc((void **) &deviceInputImageData, imageWidth * imageHeight * imageChannels * sizeof(float));
     cudaMalloc((void **) &deviceOutputImageData, imageWidth * imageHeight * imageChannels * sizeof(float));
-    cudaMalloc((void **) &deviceMaskData, maskRows * maskColumns * sizeof(float));
+    // cudaMalloc((void **) &deviceMaskData, maskRows * maskColumns * sizeof(float));
     wbTime_stop(GPU, "Doing GPU memory allocation");
 
 
@@ -165,13 +165,13 @@ int main(int argc, char* argv[]) {
                hostInputImageData,
                imageWidth * imageHeight * imageChannels * sizeof(float),
                cudaMemcpyHostToDevice);
-    cudaMemcpy(deviceMaskData,
-               hostMaskData,
-               maskRows * maskColumns * sizeof(float),
-               cudaMemcpyHostToDevice);
+    // cudaMemcpy(deviceMaskData,
+    //            hostMaskData,
+    //            maskRows * maskColumns * sizeof(float),
+    //            cudaMemcpyHostToDevice);
     
     // use constant memory alternatively
-    // CSC(cudaMemcpyToSymbol(M, hostMaskData, maskRows * maskColumns * sizeof(float)));
+    CSC(cudaMemcpyToSymbol(M, hostMaskData, maskRows * maskColumns * sizeof(float)));
     wbTime_stop(Copy, "Copying data to the GPU");
 
 
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
     dim3 blocks(CEIL(imageHeight, O_Tile_Width), CEIL(imageWidth, O_Tile_Width), 1);
     convolution_2D_tiled_kernel<<<blocks, threads>>>(deviceOutputImageData, deviceInputImageData,
                                                      imageHeight, imageWidth, wbImage_getPitch(inputImage), imageChannels,
-                                                     Mask_width, deviceMaskData);
+                                                     Mask_width);
     CCE();
     wbTime_stop(Compute, "Doing the computation on the GPU");
 
@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
 
     cudaFree(deviceInputImageData);
     cudaFree(deviceOutputImageData);
-    cudaFree(deviceMaskData);
+    // cudaFree(deviceMaskData);
 
     free(hostMaskData);
     wbImage_delete(outputImage);

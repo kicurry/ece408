@@ -4,6 +4,7 @@
 # output
 build
 res.raw
+res.ppm
 
 # reference answer
 ref

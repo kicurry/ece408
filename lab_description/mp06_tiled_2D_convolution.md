@@ -30,7 +30,7 @@ the mask at position `x,y`.
 
 Before starting this lab, make sure that:
 
-* You have completed all week 3 lecture videos
+* You have read chapter 7 in the testbook
 
 ## Input Data
 

@@ -69,8 +69,10 @@ __global__ void convolution_2D_tiled_kernel(float *P, float *N,
     int tidy = threadIdx.y;
 
     // index in output tiles of result matrix P
-    int row_o = blockIdx.x * O_Tile_Width + tidx;
-    int col_o = blockIdx.y * O_Tile_Width + tidy;
+    // int row_o = blockIdx.x * O_Tile_Width + tidx;
+    int row_o = blockIdx.y * O_Tile_Width + tidy;
+    // int col_o = blockIdx.y * O_Tile_Width + tidy;
+    int col_o = blockIdx.x * O_Tile_Width + tidx;
 
     // index in input tiles (corresponding to index in N)
     int row_i = row_o - Mask_radius;
@@ -80,12 +82,16 @@ __global__ void convolution_2D_tiled_kernel(float *P, float *N,
     // load N elements from global memory to shared memory
     if (row_i >= 0 && row_i < height && col_i >= 0 && col_i < width) {
         for (int c = 0;c < channels;c ++) {
+            // error1: pitch
             // N_ds[tidx][tidy][c] = N[channels * (row_i * pitch + col_i) + c];
-            N_ds[tidx][tidy][c] = N[row_i * pitch + col_i * channels + c];
+            // warning: to get memory coalesces, use tidy as vertical coordinates.
+            // N_ds[tidx][tidy][c] = N[row_i * pitch + col_i * channels + c];
+            N_ds[tidy][tidx][c] = N[row_i * pitch + col_i * channels + c];
         }
     } else {
         for (int c = 0;c < channels;c ++) {
-            N_ds[tidx][tidy][c] = 0.0f;
+            // N_ds[tidx][tidy][c] = 0.0f;
+            N_ds[tidy][tidx][c] = 0.0f;
         }
     }
 
@@ -95,7 +101,8 @@ __global__ void convolution_2D_tiled_kernel(float *P, float *N,
             output[c] = 0.0f;
             for (int i = 0;i < MaskWidth;i ++) {
                 for (int j = 0;j < MaskWidth;j ++) {                
-                    output[c] += M[i * MaskWidth + j] * N_ds[tidx + i][tidy + j][c];
+                    // output[c] += M[i * MaskWidth + j] * N_ds[tidx + i][tidy + j][c];
+                    output[c] += M[i * MaskWidth + j] * N_ds[tidy + i][tidx + j][c];
                 }
             }
         }

@@ -95,6 +95,8 @@ __global__ void convolution_2D_tiled_kernel(float *P, float *N,
         }
     }
 
+    __syncthreads();
+
     if (tidx < O_Tile_Width && tidy < O_Tile_Width) {
         float output[Max_Channel];
         for (int c = 0;c < channels;c ++) {

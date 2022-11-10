@@ -43,6 +43,35 @@ __global__ void total(float * input, float * output, int len) {
     output[blockIdx.x] = partialSum[0];
 }
 
+__global__ void total_by_shfl(float * input, float * output, int len) {    
+    // declare shared memory
+    __shared__ float partialSum[BLOCK_SIZE << 1];
+
+    // load input to shared memory
+    int tidx = threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + tidx;
+    if (idx < len) {
+        // only the last warp has thread divergence
+        partialSum[tidx] = input[idx];
+    }
+
+    // reduction
+    for (unsigned int stride = blockDim.x >> 1;stride >= 32;stride >>= 1) {
+        __syncthreads();
+        if (tidx < stride && idx < len) {
+            partialSum[tidx] += partialSum[tidx + stride];
+        }
+    }
+
+    int laneId = tidx & 0x1f;
+    for (unsigned int stride = 16;stride >= 1;stride >>= 1) {
+        partialSum[tidx] += __shfl_xor_sync(0xffffffff, partialSum[tidx], stride);
+    }
+
+    // store in global output
+    output[blockIdx.x] = partialSum[0];
+}
+
 int main(int argc, char ** argv) {
     int ii;
     wbArg_t args;
@@ -87,7 +116,8 @@ int main(int argc, char ** argv) {
 
     wbTime_start(Compute, "Performing CUDA computation");
     //@@ Launch the GPU Kernel here
-    total<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    // total<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    total_by_shfl<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
 
     cudaDeviceSynchronize();
     wbTime_stop(Compute, "Performing CUDA computation");

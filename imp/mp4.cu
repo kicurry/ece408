@@ -4,7 +4,7 @@
 
 #include    <wb.h>
 
-#define BLOCK_SIZE 512 //@@ You can change this
+#define BLOCK_SIZE 64 //@@ You can change this
 
 #define wbCheck(stmt) do {                                 \
         cudaError_t err = stmt;                            \
@@ -14,6 +14,8 @@
         }                                                  \
     } while(0)
 
+// monolithic-style load
+// reduction tree
 __global__ void total(float * input, float * output, int len) {
     //@@ Load a segment of the input vector into shared memory
     //@@ Traverse the reduction tree
@@ -43,6 +45,9 @@ __global__ void total(float * input, float * output, int len) {
     output[blockIdx.x] = partialSum[0];
 }
 
+// monolithic-style load
+// Step 1: reduction tree to warpSize
+// Step 2: warpReduction by shuffle instructions
 __global__ void total_by_shfl(float * input, float * output, int len) {    
     // declare shared memory
     __shared__ float partialSum[BLOCK_SIZE << 1];
@@ -63,11 +68,106 @@ __global__ void total_by_shfl(float * input, float * output, int len) {
         }
     }
 
-    int laneId = tidx & 0x1f;
+    register float value = partialSum[tidx];
     for (unsigned int stride = 16;stride >= 1;stride >>= 1) {
-        partialSum[tidx] += __shfl_xor_sync(0xffffffff, partialSum[tidx], stride);
+        value += __shfl_down_sync(0xffffffff, value, stride);
     }
 
+    // store in global output
+    if (tidx == 0) {
+        output[blockIdx.x] = value;
+    }
+}
+
+// monolithic-style load
+// multi-pass warpReduction(by shuffle instructions)
+__global__ void total_by_shfl2(float * input, float * output, int len) {    
+    // declare shared memory
+    static __shared__ float partialSum[BLOCK_SIZE >> 4];
+
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int laneId = threadIdx.x & 0x1f;
+    int warpId = threadIdx.x / warpSize;
+
+    // warp reduction
+    register float value = 0; 
+    if (idx < len) {
+       value = input[idx];
+    }
+    for (unsigned int stride = 16;stride >= 1;stride /= 2) {
+        value += __shfl_down_sync(0xffffffff, value, stride);
+    }
+    // communication among warps through shared memory
+    if (laneId == 0) {
+        partialSum[warpId] = value;
+    }
+    __syncthreads();
+    value = (threadIdx.x < (BLOCK_SIZE >> 4)) ? partialSum[threadIdx.x] : 0;
+
+    // the 1st warp reduction
+    value += __shfl_down_sync(0xf, value, 2);
+    value += __shfl_down_sync(0xf, value, 1);
+    // store in global output
+    if (threadIdx.x == 0) {
+        output[blockIdx.x] = value;
+    }
+}
+
+// grid-stride-style load
+// multi-pass warpReduction(by shuffle instructions)
+__global__ void total_by_shfl3(float * input, float * output, int len) {    
+    static __shared__ float partialSum[BLOCK_SIZE >> 4];
+    
+    volatile register float sum = float(0);
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    for (int i = idx;i < len;i += gridDim.x * blockDim.x) {
+        sum += input[i];
+    }
+
+    int laneId = threadIdx.x & 0x1f;
+    int warpId = threadIdx.x / warpSize;
+
+    // warp reduction 
+    for (unsigned int stride = 16;stride >= 1;stride /= 2) {
+        sum += __shfl_down_sync(0xffffffff, sum, stride);
+    }
+    // communication among warps through shared memory
+    if (laneId == 0) {
+        partialSum[warpId] = sum;
+    }
+    __syncthreads();
+    sum = (threadIdx.x < (BLOCK_SIZE >> 4)) ? partialSum[threadIdx.x] : 0;
+
+    // the 1st warp reduction
+    sum += __shfl_down_sync(0xf, sum, 2);
+    sum += __shfl_down_sync(0xf, sum, 1);
+    // store in global output
+    if (threadIdx.x == 0) {
+        output[blockIdx.x] = sum;
+    }
+}
+
+// grid-stride-style load
+// pure reduction tree
+// NOTE: gridSize must equal to (# of Multiprocessors)*(max # of Blcoks in SM(in reality))
+__global__ void total2(float * input, float * output, int len) {    
+    static __shared__ float partialSum[BLOCK_SIZE << 1];
+    
+    volatile register float sum = float(0);
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    for (int i = idx;i < len;i += gridDim.x * blockDim.x) {
+        sum += input[i];
+    }
+    if(idx < len){
+        partialSum[threadIdx.x] = sum;
+    }
+    // reduction
+    for (unsigned int stride = blockDim.x >> 1;stride >= 1;stride >>= 1) {
+        __syncthreads();
+        if (threadIdx.x < stride && idx < len) {
+            partialSum[threadIdx.x] += partialSum[threadIdx.x + stride];
+        }
+    }
     // store in global output
     output[blockIdx.x] = partialSum[0];
 }
@@ -88,6 +188,7 @@ int main(int argc, char ** argv) {
     hostInput = (float *) wbImport(wbArg_getInputFile(args, 0), &numInputElements);
 
     numOutputElements = numInputElements / (BLOCK_SIZE<<1);
+    // numOutputElements = 360; // for tatal2
     if (numInputElements % (BLOCK_SIZE<<1)) {
         numOutputElements++;
     }
@@ -116,8 +217,12 @@ int main(int argc, char ** argv) {
 
     wbTime_start(Compute, "Performing CUDA computation");
     //@@ Launch the GPU Kernel here
-    // total<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
-    total_by_shfl<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    total<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    // total_by_shfl<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    // total_by_shfl2<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    // total_by_shfl3<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);
+    
+    // total2<<<grid, block>>>(deviceInput, deviceOutput, numInputElements);    // need to set numOutputElements = 360
 
     cudaDeviceSynchronize();
     wbTime_stop(Compute, "Performing CUDA computation");
